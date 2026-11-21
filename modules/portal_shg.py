@@ -11,6 +11,7 @@ Features:
   4. Dispatch to Recycler (Sorted -> Delivered to Recycler): select CPCB recycler, enter challan
 - Financial ledger with 75% SHG net revenue share and CSV export
 - New SHG Registration onboarding with regex scrutiny (NULM/NRLM)
+- Contextual help tooltips and equal-height aligned cards
 """
 
 import streamlit as st
@@ -33,17 +34,23 @@ from services import (
 import db
 from modules.ui_common import (
     inject_custom_css,
+    render_page_header,
     get_status_badge_html,
-    render_status_stepper
+    render_status_stepper,
+    render_html
 )
 
 
 def render_shg_portal():
     """Renders the complete Women SHG portal view."""
-    inject_custom_css()
+    inject_custom_css(dark_mode=st.session_state.get("dark_mode", False))
 
-    st.markdown("## 👩‍🦰 Women SHG Micro-Entrepreneur Portal")
-    st.caption("Empowering DAY-NRLM / DAY-NULM registered women Self-Help Groups with green livelihood opportunities in Meerut.")
+    render_page_header(
+        icon="👩‍🦰",
+        title="Women SHG Micro-Entrepreneur Portal",
+        subtitle="Empowering DAY-NRLM / DAY-NULM registered women Self-Help Groups with dignified green livelihoods in Meerut.",
+        badge="DAY-NRLM / NULM Partner"
+    )
 
     # Check session state for logged-in SHG
     current_shg_id = st.session_state.get("logged_in_shg_id")
@@ -120,21 +127,29 @@ def _render_login_view():
     col1, col2 = st.columns([1.5, 1])
 
     with col1:
-        st.markdown(
+        render_html(
             """
             <div class="she-card she-card-highlight">
-                <h4 style="margin-top:0; color:#3B2F72;">🔐 SHG Leader / Member Login</h4>
-                <p style="font-size:0.85rem; color:#64748B;">
+                <h4 style="margin-top:0; color:var(--primary);">🔐 SHG Leader / Member Login</h4>
+                <p style="font-size:0.85rem; color:var(--muted); margin-bottom:0;">
                     Access pickup requests assigned to your operating wards, log verified weights, and manage revenue splits.
                 </p>
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
         with st.form("shg_login_form"):
-            reg_id_input = st.text_input("Govt. Registration ID", placeholder="e.g. NULM-2024-88 or NRLM-1024")
-            pin_input = st.text_input("4-Digit Security PIN", type="password", placeholder="••••")
+            reg_id_input = st.text_input(
+                "Govt. Registration ID",
+                placeholder="e.g. NULM-2024-88 or NRLM-1024",
+                help="Enter your official DAY-NRLM or DAY-NULM registration identifier."
+            )
+            pin_input = st.text_input(
+                "4-Digit Security PIN",
+                type="password",
+                placeholder="••••",
+                help="Your 4-digit PIN set during group onboarding."
+            )
             login_submitted = st.form_submit_button("Sign In to SHG Hub", type="primary", use_container_width=True)
 
             if login_submitted:
@@ -154,14 +169,13 @@ def _render_login_view():
                             st.error("Incorrect PIN. Please re-enter your 4-digit security PIN.")
 
     with col2:
-        st.markdown(
+        render_html(
             """
             <div class="she-card she-card-green">
-                <h4 style="margin-top:0; color:#0D9488;">⚡ Quick Demo Login (Judges)</h4>
-                <p style="font-size:0.85rem; color:#64748B;">Click below to instantly log in as a verified group:</p>
+                <h4 style="margin-top:0; color:var(--success);">⚡ Quick Demo Login (Judges)</h4>
+                <p style="font-size:0.85rem; color:var(--muted); margin-bottom:0;">Click below to instantly log in as a verified group:</p>
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
         if st.button("👩‍🦰 Log in as Maa Durga SHG (NULM Urban)", use_container_width=True):
@@ -190,29 +204,28 @@ def _render_login_view():
 
 def _render_shg_header(shg: Dict[str, Any]):
     """Renders profile header for logged-in SHG."""
-    c_info, c_btn = st.columns([3, 1])
+    c_info, c_btn = st.columns([3.5, 1])
     with c_info:
         badge_html = get_status_badge_html(shg['status'])
-        st.markdown(
+        render_html(
             f"""
-            <div style="background:#F1F5F9; border-radius:10px; padding:12px 18px; margin-bottom:16px;">
+            <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 22px; margin-bottom:18px; box-shadow:0 4px 16px var(--shadow);">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <div>
-                        <h4 style="margin:0; color:#3B2F72;">{shg['name']} &nbsp; {badge_html}</h4>
-                        <span style="font-size:0.85rem; color:#475569;">
-                            <strong>Reg ID:</strong> <code>{shg['reg_id']}</code> |
-                            <strong>Portal:</strong> {shg['portal_type']} |
-                            <strong>Leader:</strong> {shg['leader_name']} |
-                            <strong>Bank (DBT):</strong> <code>{shg['bank_ac_masked']}</code>
-                        </span><br/>
-                        <span style="font-size:0.8rem; color:#0D9488;">
-                            📍 <strong>Operating Wards:</strong> {shg['localities']}
-                        </span>
+                        <h4 style="margin:0; color:var(--primary); font-weight:800;">{shg['name']} &nbsp; {badge_html}</h4>
+                        <div style="font-size:0.85rem; color:var(--muted); margin-top:4px; line-height:1.5;">
+                            <strong style="color:var(--text);">Reg ID:</strong> <code>{shg['reg_id']}</code> &nbsp;|&nbsp;
+                            <strong style="color:var(--text);">Portal:</strong> {shg['portal_type']} &nbsp;|&nbsp;
+                            <strong style="color:var(--text);">Leader:</strong> {shg['leader_name']} &nbsp;|&nbsp;
+                            <strong style="color:var(--text);">Bank (DBT):</strong> <code>{shg['bank_ac_masked']}</code>
+                        </div>
+                        <div style="font-size:0.82rem; color:var(--success); font-weight:600; margin-top:4px;">
+                            📍 Operating Wards: {shg['localities']}
+                        </div>
                     </div>
                 </div>
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
     with c_btn:
         st.write("")
@@ -250,7 +263,7 @@ def _render_job_board(shg: Dict[str, Any]):
         with st.container(border=True):
             c1, c2, c3 = st.columns([2, 2, 1.2])
             with c1:
-                st.markdown(f"**ID:** <code>{job['id']}</code>", unsafe_allow_html=True)
+                render_html(f"<div><strong style='color:var(--text);'>ID:</strong> <code>{job['id']}</code></div>")
                 st.write(f"**Citizen:** {job['citizen_name']}")
                 st.write(f"**Phone:** `{mask_phone(job['phone'])}`")
                 st.write(f"**Address:** {job['address']} ({job['ward']})")
@@ -302,7 +315,7 @@ def _render_collections_workflow(shg: Dict[str, Any]):
             st.info("No jobs waiting for collection.")
         for job in assigned_jobs:
             with st.container(border=True):
-                st.markdown(f"##### Request: <code>{job['id']}</code> - {job['citizen_name']}", unsafe_allow_html=True)
+                render_html(f"<div style='font-size:1.05rem; font-weight:700; color:var(--text); margin-bottom:8px;'>Request: <code>{job['id']}</code> - {job['citizen_name']}</div>")
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.write(f"**Ward:** {job['ward']}")
@@ -318,14 +331,17 @@ def _render_collections_workflow(shg: Dict[str, Any]):
                         max_value=300.0,
                         value=float(job["estimated_kg"]),
                         step=0.1,
+                        help="Verified weight using handheld calibrated digital scale.",
                         key=f"act_kg_{job['id']}"
                     )
                     ppe_check = st.checkbox(
                         "Mandatory PPE: Protective gloves & goggles worn.",
+                        help="Confirms cut-resistant nitrile gloves and eye safety gear were used.",
                         key=f"ppe_{job['id']}"
                     )
                     battery_check = st.checkbox(
                         "Battery Safety: Lithium batteries sealed in puncture-proof pouch.",
+                        help="Ensures critical battery packs remain sealed in dry fire-retardant pouches.",
                         key=f"batt_{job['id']}"
                     )
 
@@ -352,10 +368,10 @@ def _render_collections_workflow(shg: Dict[str, Any]):
             st.info("No jobs awaiting sorting.")
         for job in collected_jobs:
             with st.container(border=True):
-                st.markdown(f"##### Request: <code>{job['id']}</code> (Total Weight: {job['actual_kg']} kg)", unsafe_allow_html=True)
+                render_html(f"<div style='font-size:1.05rem; font-weight:700; color:var(--text); margin-bottom:8px;'>Request: <code>{job['id']}</code> (Total Weight: {job['actual_kg']} kg)</div>")
 
                 # Statutory Compliance Rule Alert
-                st.markdown(
+                render_html(
                     """
                     <div class="safety-box">
                         <strong>⚠️ Statutory E-Waste Rule (CPCB Guidelines):</strong><br/>
@@ -363,8 +379,7 @@ def _render_collections_workflow(shg: Dict[str, Any]):
                         Industrial dismantling, shredding, and chemical refining are done exclusively by authorized recyclers.
                         Hazardous fractions like intact lithium batteries must be handed over unopened.
                     </div>
-                    """,
-                    unsafe_allow_html=True
+                    """
                 )
 
                 tot_w = float(job["actual_kg"])
@@ -401,12 +416,17 @@ def _render_collections_workflow(shg: Dict[str, Any]):
             st.info("No sorted jobs ready for recycler dispatch.")
         for job in sorted_jobs:
             with st.container(border=True):
-                st.markdown(f"##### Request: <code>{job['id']}</code> (Actual: {job['actual_kg']} kg)", unsafe_allow_html=True)
+                render_html(f"<div style='font-size:1.05rem; font-weight:700; color:var(--text); margin-bottom:8px;'>Request: <code>{job['id']}</code> (Actual: {job['actual_kg']} kg)</div>")
                 d1, d2 = st.columns(2)
                 with d1:
                     rec_choice = st.selectbox("Select CPCB-Authorised Recycler:", options=AUTHORISED_RECYCLERS, key=f"rec_sel_{job['id']}")
                 with d2:
-                    challan_no = st.text_input("Recycler Handover Challan / Manifest # *", value=f"REC-UP-2026-{job['seq_num'] + 8000}", key=f"chal_{job['id']}")
+                    challan_no = st.text_input(
+                        "Recycler Handover Challan / Manifest # *",
+                        value=f"REC-UP-2026-{job['seq_num'] + 8000}",
+                        help="Enter the official paper or digital consignment challan number provided by the recycler.",
+                        key=f"chal_{job['id']}"
+                    )
 
                 if st.button("🚛 Dispatch to Authorised Recycler", key=f"btn_deliv_{job['id']}", type="primary"):
                     if not challan_no.strip():
@@ -426,7 +446,7 @@ def _render_collections_workflow(shg: Dict[str, Any]):
             st.info("No jobs awaiting municipal settlement.")
         for job in delivered_jobs:
             with st.container(border=True):
-                st.markdown(f"##### Request: <code>{job['id']}</code>", unsafe_allow_html=True)
+                render_html(f"<div style='font-size:1.05rem; font-weight:700; color:var(--text); margin-bottom:8px;'>Request: <code>{job['id']}</code></div>")
                 st.write(f"**Recycler:** {job['recycler_name']}")
                 st.write(f"**Challan #:** `{job['recycler_challan_no']}`")
                 st.write(f"**SHG Earnings Share:** ₹{job['shg_earnings']:.2f}")
@@ -439,7 +459,7 @@ def _render_collections_workflow(shg: Dict[str, Any]):
             st.info("No settled jobs yet.")
         for job in settled_jobs:
             with st.container(border=True):
-                st.markdown(f"##### Request: <code>{job['id']}</code> &nbsp; {get_status_badge_html('Settled')}", unsafe_allow_html=True)
+                render_html(f"<div style='font-size:1.05rem; font-weight:700; color:var(--text); margin-bottom:8px;'>Request: <code>{job['id']}</code> &nbsp; {get_status_badge_html('Settled')}</div>")
                 st.write(f"**Category:** {job['category']} | **Weight:** {job['actual_kg']} kg")
                 st.write(f"**Gross Value:** ₹{job['gross_value']:.2f} | **SHG Net Share (75%):** ₹{job['shg_earnings']:.2f}")
                 st.success(f"✅ Settled to Bank Account `{shg['bank_ac_masked']}` via DBT.")
@@ -461,7 +481,6 @@ def _render_earnings_ledger(shg: Dict[str, Any]):
     total_shg = sum(j["shg_earnings"] for j in completed)
     total_logistics = sum(j["logistics_fund"] for j in completed)
     total_platform = sum(j["platform_fee"] for j in completed)
-    total_green_credits = sum(j["green_credit_fund"] for j in completed)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Gross E-Waste Value", f"₹{total_gross:,.2f}")
@@ -470,19 +489,18 @@ def _render_earnings_ledger(shg: Dict[str, Any]):
     c4.metric("Completed Pickups", len(completed))
 
     # Revenue Split Explainer Box
-    st.markdown(
+    render_html(
         """
         <div class="she-card she-card-highlight">
-            <h5 style="margin-top:0; color:#3B2F72;">📊 Configurable Revenue Split Breakdown (Sums to 100%)</h5>
-            <p style="font-size:0.85rem; color:#475569;">
-                • <strong>SHG Net Share (75%):</strong> Direct micro-entrepreneur income credited to group bank account.<br/>
-                • <strong>Logistics & Safety Fund (12%):</strong> Covers digital weighing scale calibration, PPE kits, and puncture-proof bags.<br/>
-                • <strong>Municipal Platform Fee (8%):</strong> Software infrastructure, GIS routing, and administrative audit.<br/>
-                • <strong>Green Credits Fund (5%):</strong> Municipal citizen reward and community sustainability pool.
+            <h5 style="margin-top:0; color:var(--primary);">📊 Configurable Revenue Split Breakdown (Sums to 100%)</h5>
+            <p style="font-size:0.85rem; color:var(--muted); line-height:1.6; margin-bottom:0;">
+                • <strong style="color:var(--text);">SHG Net Share (75%):</strong> Direct micro-entrepreneur income credited to group bank account.<br/>
+                • <strong style="color:var(--text);">Logistics & Safety Fund (12%):</strong> Covers digital weighing scale calibration, PPE kits, and puncture-proof bags.<br/>
+                • <strong style="color:var(--text);">Municipal Platform Fee (8%):</strong> Software infrastructure, GIS routing, and administrative audit.<br/>
+                • <strong style="color:var(--text);">Green Credits Fund (5%):</strong> Municipal citizen reward and community sustainability pool.
             </p>
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
     if completed:
@@ -538,15 +556,29 @@ def _render_registration_form():
             leader = st.text_input("Group Leader Name *", placeholder="e.g. Sushila Devi")
 
         with r2:
-            phone = st.text_input("Mobile Number (Aadhaar linked) *", placeholder="e.g. 9837112233")
+            phone = st.text_input(
+                "Mobile Number (Aadhaar linked) *",
+                placeholder="e.g. 9837112233",
+                help="10-digit Indian mobile number for administrative SMS alerts."
+            )
             wards = st.multiselect(
                 "Operating Localities / Wards *",
                 options=MEERUT_WARDS,
                 default=["Kankar Khera", "Modipuram"],
                 help="Select the wards where your members can provide doorstep collection."
             )
-            bank_ac = st.text_input("SHG Bank Account (DBT) *", placeholder="e.g. 123456789012")
-            pin = st.text_input("Set 4-Digit Security PIN *", type="password", max_chars=4, placeholder="••••")
+            bank_ac = st.text_input(
+                "SHG Bank Account (DBT) *",
+                placeholder="e.g. 123456789012",
+                help="Will be masked immediately upon submission (****1234) under DPDP Act rules."
+            )
+            pin = st.text_input(
+                "Set 4-Digit Security PIN *",
+                type="password",
+                max_chars=4,
+                placeholder="••••",
+                help="Used to log into your SHG collection job board."
+            )
 
         reg_submit = st.form_submit_button("Submit SHG for Municipal Verification", type="primary", use_container_width=True)
 

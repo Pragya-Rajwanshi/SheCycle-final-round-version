@@ -8,6 +8,7 @@ Features:
 - Secure tracking requiring Request ID + last 4 digits of phone
 - Interactive status timeline and audit history
 - Green Credits wallet and privacy-preserving community leaderboard
+- Contextual help tooltips and responsive, clean typography
 """
 
 import streamlit as st
@@ -27,18 +28,20 @@ import db
 from modules.ui_common import (
     t,
     inject_custom_css,
+    render_page_header,
     render_status_stepper,
     get_status_badge_html,
-    generate_qr_image
+    generate_qr_image,
+    render_html
 )
 
 
 def render_citizen_portal():
     """Renders the complete Citizen portal view."""
-    inject_custom_css()
+    inject_custom_css(dark_mode=st.session_state.get("dark_mode", False))
 
-    # Bilingual Language Selector
-    col_title, col_lang = st.columns([3, 1])
+    # Bilingual Language Selector in Header Row
+    col_lang_spc, col_lang = st.columns([3.5, 1])
     with col_lang:
         lang_choice = st.radio(
             "🌐 भाषा / Language",
@@ -48,9 +51,13 @@ def render_citizen_portal():
         )
         lang = "hi" if lang_choice == "हिंदी" else "en"
 
-    with col_title:
-        st.markdown(f"## 👤 {t('doorstep_title', lang)}")
-        st.caption(t('doorstep_sub', lang))
+    # Standardized Page Header
+    render_page_header(
+        icon="👤",
+        title=t("doorstep_title", lang),
+        subtitle=t("doorstep_sub", lang),
+        badge="Zero Convenience Fee" if lang == "en" else "निःशुल्क सेवा"
+    )
 
     tab_request, tab_track, tab_credits = st.tabs([
         f"📝 {('अनुरोध दर्ज करें' if lang == 'hi' else 'Request Pickup')}",
@@ -62,17 +69,16 @@ def render_citizen_portal():
     # TAB 1: PICKUP REQUEST FORM
     # ==========================================
     with tab_request:
-        st.markdown(
+        render_html(
             f"""
             <div class="she-card she-card-green">
-                <h4 style="margin-top:0; color:#0D9488;">⚡ {('त्वरित ३-चरणीय पिकअप' if lang == 'hi' else 'Fast Doorstep Recycling in 3 Steps')}</h4>
-                <p style="font-size:0.9rem; color:#475569; margin-bottom:0;">
-                    {('फॉर्म भरें -> स्थानीय सत्यापित महिला SHG संग्रह करेगी -> ग्रीन क्रेडिट्स प्राप्त करें!' if lang == 'hi'
-                      else 'Fill simple details &rarr; Verified Women SHG collects at your doorstep &rarr; Earn Green Credits & support local prosperity!')}
+                <h4 style="margin-top:0; color:var(--success);">⚡ {('त्वरित ३-चरण पिकअप प्रक्रिया' if lang == 'hi' else 'Fast Doorstep Recycling in 3 Steps')}</h4>
+                <p style="font-size:0.9rem; color:var(--muted); margin-bottom:0; line-height:1.5;">
+                    {('फॉर्म भरें &rarr; स्थानीय सत्यापित महिला SHG आपके घर आकर संग्रह करेगी &rarr; ग्रीन क्रेडिट्स प्राप्त करें!' if lang == 'hi'
+                      else 'Fill simple details &rarr; Verified Women SHG collects at your doorstep &rarr; Earn Green Credits & support local women micro-entrepreneurs!')}
                 </p>
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
         with st.form("citizen_pickup_form", clear_on_submit=False):
@@ -82,12 +88,13 @@ def render_citizen_portal():
                 name_input = st.text_input(
                     f"{t('your_name', lang)} *",
                     placeholder="e.g. Rahul Sharma / राहुल शर्मा",
+                    help="Your full legal or preferred name for pickup handover verification.",
                     key="cit_name"
                 )
                 phone_input = st.text_input(
                     f"{t('phone_label', lang)} *",
                     placeholder="e.g. 9876543210 (10 digits)",
-                    help="Used for collection OTP and tracking authentication.",
+                    help="Used for collection OTP verification and secure dual-key tracking authentication.",
                     key="cit_phone"
                 )
             with c2:
@@ -95,11 +102,13 @@ def render_citizen_portal():
                     f"{t('ward_label', lang)} *",
                     options=MEERUT_WARDS,
                     index=0,
+                    help="Select the Meerut ward or locality where the items are located for routing to local SHGs.",
                     key="cit_ward"
                 )
                 address_input = st.text_input(
                     f"{t('address_label', lang)} *",
                     placeholder="e.g. House 42, Pocket B, Near Temple",
+                    help="Detailed street address, building/flat number, and prominent landmark.",
                     key="cit_address"
                 )
 
@@ -112,6 +121,7 @@ def render_citizen_portal():
                     f"{t('category_label', lang)} *",
                     options=category_list,
                     index=0,
+                    help="Select the predominant electronic scrap category.",
                     key="cit_cat"
                 )
                 weight_input = st.number_input(
@@ -135,30 +145,31 @@ def render_citizen_portal():
                     f"{t('pickup_slot_label', lang)} *",
                     options=slot_options,
                     index=0,
+                    help="Preferred time window when you will be available for doorstep handover.",
                     key="cit_slot"
                 )
                 photo_file = st.file_uploader(
                     f"{('उपकरण का फोटो (वैकल्पिक)' if lang == 'hi' else 'Device Photo (Optional)')}",
                     type=["jpg", "jpeg", "png"],
-                    help="Upload a quick snap of your e-waste for faster identification.",
+                    help="Upload a snap of your scrap for faster identification by the SHG collector.",
                     key="cit_photo"
                 )
 
             # Safety Advisory Box
-            st.markdown(
+            render_html(
                 f"""
                 <div class="safety-box">
                     <strong>{t('safety_advisory_title', lang)}</strong><br/>
                     {t('safety_advisory_text', lang)}
                 </div>
-                """,
-                unsafe_allow_html=True
+                """
             )
 
             # DPDP Consent Checkbox
             consent_checked = st.checkbox(
                 t('consent_text', lang),
                 value=False,
+                help="Statutory consent required under Section 6 of India's DPDP Act 2023.",
                 key="cit_consent"
             )
 
@@ -215,21 +226,20 @@ def render_citizen_portal():
 
             col_res1, col_res2 = st.columns([2, 1])
             with col_res1:
-                st.markdown(
+                render_html(
                     f"""
                     <div class="she-card she-card-highlight">
-                        <h4 style="margin-top:0; color:#3B2F72;">📋 {('पिकअप विवरण कार्ड' if lang == 'hi' else 'Pickup Summary Card')}</h4>
+                        <h4 style="margin-top:0; color:var(--primary);">📋 {('पिकअप विवरण कार्ड' if lang == 'hi' else 'Pickup Summary Card')}</h4>
                         <p><strong>Request ID:</strong> <code>{req_id}</code></p>
                         <p><strong>Tracking Auth:</strong> Request ID + Last 4 digits of phone (<code>{p_last4}</code>)</p>
                         <p><strong>Assigned Ward:</strong> {st.session_state.get('cit_ward', 'Meerut')}</p>
-                        <p><strong>Estimated Green Credits:</strong> <span style="color:#0D9488; font-weight:700; font-size:1.1rem;">+{credits} Credits</span></p>
-                        <p style="font-size:0.85rem; color:#64748B;">
+                        <p><strong>Estimated Green Credits:</strong> <span style="color:var(--success); font-weight:700; font-size:1.1rem;">+{credits} Credits</span></p>
+                        <p style="font-size:0.85rem; color:var(--muted); margin-bottom:0;">
                             {('हमारे नजदीकी नगर निगम सत्यापित महिला स्वयं सहायता समूह को यह अनुरोध भेज दिया गया है।' if lang == 'hi'
                               else 'Your pickup request has been routed to the verified local Women SHG operating in your ward.')}
                         </p>
                     </div>
-                    """,
-                    unsafe_allow_html=True
+                    """
                 )
             with col_res2:
                 st.markdown(f"**{'पिकअप क्यूआर कोड' if lang == 'hi' else 'Digital Pickup QR Pass'}**")
@@ -258,6 +268,7 @@ def render_citizen_portal():
             track_id_input = st.text_input(
                 t('enter_req_id', lang),
                 value=default_req,
+                help="Your sequential EW-XXXXX request identifier.",
                 key="track_req_id"
             )
         with c_t2:
@@ -265,6 +276,7 @@ def render_citizen_portal():
                 t('enter_phone_last4', lang),
                 value=default_last4,
                 max_chars=4,
+                help="Last 4 digits of the mobile number entered during request booking.",
                 key="track_last4"
             )
         with c_t3:
@@ -285,13 +297,20 @@ def render_citizen_portal():
                     )
                 else:
                     st.markdown("---")
-                    st.markdown(f"### Status: {get_status_badge_html(req_data['status'])}", unsafe_allow_html=True)
+                    render_html(
+                        f"""
+                        <div style="display:flex; align-items:center; gap:12px; margin:14px 0;">
+                            <h3 style="margin:0; color:var(--text);">Current Status:</h3>
+                            <div>{get_status_badge_html(req_data['status'])}</div>
+                        </div>
+                        """
+                    )
 
-                    # Visual Stepper Bar
-                    render_status_stepper(req_data["status"])
+                    # Visual Stepper Bar with Connecting Lines
+                    render_status_stepper(req_data["status"], lang=lang)
 
                     # Request Detail Cards
-                    st.markdown("<br/>", unsafe_allow_html=True)
+                    st.write("")
                     m1, m2, m3, m4 = st.columns(4)
                     m1.metric("Request ID", req_data["id"])
                     m2.metric("Ward / Locality", req_data["ward"])
@@ -324,25 +343,24 @@ def render_citizen_portal():
 
         col_w1, col_w2 = st.columns([1.5, 2])
         with col_w1:
-            st.markdown(
+            render_html(
                 """
                 <div class="she-card she-card-green">
-                    <h4 style="margin-top:0; color:#0D9488;">📊 Green Credit Multipliers</h4>
-                    <p style="font-size:0.85rem; color:#64748B;">Earned per kg upon verified doorstep collection:</p>
-                    <ul style="font-size:0.85rem; padding-left:18px; color:#334155;">
+                    <h4 style="margin-top:0; color:var(--success);">📊 Green Credit Multipliers</h4>
+                    <p style="font-size:0.85rem; color:var(--muted);">Earned per kg upon verified doorstep collection:</p>
+                    <ul style="font-size:0.85rem; padding-left:18px; color:var(--text); line-height:1.6;">
                         <li><strong>Smartphones & Devices:</strong> 25 Credits/kg</li>
                         <li><strong>Laptops & Computers:</strong> 20 Credits/kg</li>
                         <li><strong>Lithium Batteries (Critical):</strong> 30 Credits/kg</li>
                         <li><strong>Small Home Appliances:</strong> 10 Credits/kg</li>
                         <li><strong>Mixed Scrap:</strong> 12 Credits/kg</li>
                     </ul>
-                    <hr style="border:none; border-top:1px solid #E2E8F0; margin:10px 0;"/>
-                    <p style="font-size:0.8rem; color:#0D9488; margin-bottom:0;">
+                    <hr style="border:none; border-top:1px solid var(--border); margin:12px 0;"/>
+                    <p style="font-size:0.8rem; color:var(--success); margin-bottom:0;">
                         💡 <em>100 Green Credits = ₹50 Municipal Property Tax Rebate (Simulated Meerut Pilot Policy)</em>
                     </p>
                 </div>
-                """,
-                unsafe_allow_html=True
+                """
             )
 
         with col_w2:

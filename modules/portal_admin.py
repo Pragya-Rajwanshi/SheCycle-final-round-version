@@ -4,7 +4,7 @@ Features:
 - Password protected (demo password from st.secrets or fallback 'meerut2026')
 - KPI impact metrics with stated environmental assumptions
 - SHG Scrutiny & Approval Queue (Approve / Reject with logged reason)
-- Real Tonnage Analytics (Plotly interactive charts: timeline, category, ward, status funnel)
+- Real Tonnage Analytics (Plotly interactive charts matching design palette)
 - Financial Settlement Reconciler (Delivered -> Settled via DBT)
 - Master Compliance Audit Trail with drill-down inspector and CSV export
 - Real-time Exception Alerts (unassigned > 48 hours, inactive SHGs)
@@ -18,15 +18,25 @@ from typing import Optional, List, Dict, Any
 
 from services import mask_phone, AUTHORISED_RECYCLERS
 import db
-from modules.ui_common import inject_custom_css, get_status_badge_html
+from modules.ui_common import (
+    inject_custom_css,
+    render_page_header,
+    get_status_badge_html,
+    render_html,
+    get_plotly_theme
+)
 
 
 def render_admin_portal():
     """Renders the Municipal Admin portal view."""
-    inject_custom_css()
+    inject_custom_css(dark_mode=st.session_state.get("dark_mode", False))
 
-    st.markdown("## 🏛️ Municipal Administration & Regulatory Oversight")
-    st.caption("City-level e-waste compliance monitoring, SHG scrutiny, and tonnage lifecycle audit for Meerut Nagar Nigam.")
+    render_page_header(
+        icon="🏛️",
+        title="Municipal Administration & Regulatory Oversight",
+        subtitle="City-level e-waste compliance monitoring, SHG scrutiny, and tonnage lifecycle audit for Meerut Nagar Nigam.",
+        badge="CPCB / UPPCB Cluster"
+    )
 
     # Admin Authentication Check
     if not _check_admin_auth():
@@ -86,20 +96,24 @@ def _check_admin_auth() -> bool:
     except Exception:
         pass
 
-    st.markdown(
+    render_html(
         """
         <div class="she-card she-card-indigo">
-            <h4 style="margin-top:0; color:#3B2F72;">🔒 Municipal Authority Access Restricted</h4>
-            <p style="font-size:0.85rem; color:#64748B;">
+            <h4 style="margin-top:0; color:var(--primary);">🔒 Municipal Authority Access Restricted</h4>
+            <p style="font-size:0.85rem; color:var(--muted); margin-bottom:0;">
                 Authorized access for Urban Local Bodies (ULB), UP Pollution Control Board (UPPCB), and NULM City Project Officers.
             </p>
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
     with st.form("admin_auth_form"):
-        pwd_input = st.text_input("Enter Municipal Admin Password", type="password", placeholder="••••••••")
+        pwd_input = st.text_input(
+            "Enter Municipal Admin Password",
+            type="password",
+            placeholder="••••••••",
+            help="Pre-configured demo password for evaluators: 'meerut2026'."
+        )
         pwd_submit = st.form_submit_button("Authenticate as Admin", type="primary", use_container_width=True)
 
         if pwd_submit:
@@ -127,7 +141,7 @@ def _render_kpi_cards(kpi: Dict[str, Any]):
     """Renders top impact metric cards."""
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Total Requests", kpi["total_requests"])
-    c2.metric("Total Collected Tonnage", f"{kpi['total_kg']} kg")
+    c2.metric("Collected Tonnage", f"{kpi['total_kg']} kg")
     c3.metric("Verified SHGs Active", kpi["active_shgs"], delta=f"{kpi['pending_shgs']} Pending", delta_color="inverse")
     c4.metric("SHG Revenue Paid", f"₹{kpi['total_shg_earnings']:,.0f}")
     c5.metric("Est. CO2 Avoided", f"{kpi['co2_avoided_kg']} kg", delta=f"{kpi['trees_equivalent']} trees")
@@ -164,13 +178,15 @@ def _render_exception_alerts():
 
 
 # ==========================================
-# 4. REAL TONNAGE ANALYTICS
+# 4. REAL TONNAGE ANALYTICS (PALETTE POLISHED & THEME AWARE)
 # ==========================================
 
 def _render_tonnage_analytics():
-    """Renders Plotly charts for tonnage analytics."""
+    """Renders Plotly charts for tonnage analytics matching design system palette in light/dark mode."""
     st.markdown("#### 📈 Real E-Waste Tonnage & Flow Analytics")
     st.caption("Detailed spatial, temporal, and categorical breakdown across Meerut Nagar Nigam.")
+
+    ptheme = get_plotly_theme(st.session_state.get("dark_mode", False))
 
     # Row 1: Tonnage Over Time & Funnel
     ch1, ch2 = st.columns([1.5, 1])
@@ -186,14 +202,23 @@ def _render_tonnage_analytics():
                 markers=True,
                 title="Daily E-Waste Tonnage Influx (Last 60 Days)",
                 labels={"day_date": "Date", "daily_kg": "Weight (kg)"},
-                color_discrete_sequence=["#3B2F72"]
+                color_discrete_sequence=[ptheme["colors"][0]]
             )
             fig_timeline.update_layout(
                 xaxis_title="Date",
                 yaxis_title="Kilograms (kg)",
                 template="plotly_white",
+                font=dict(family="Plus Jakarta Sans", color=ptheme["font_color"]),
                 margin=dict(l=20, r=20, t=40, b=20),
-                height=320
+                height=320,
+                paper_bgcolor=ptheme["paper_bgcolor"],
+                plot_bgcolor=ptheme["plot_bgcolor"],
+                xaxis=dict(gridcolor=ptheme["grid_color"], color=ptheme["font_color"]),
+                yaxis=dict(gridcolor=ptheme["grid_color"], color=ptheme["font_color"])
+            )
+            fig_timeline.update_traces(
+                line=dict(width=3, color=ptheme["colors"][0]),
+                marker=dict(size=7, color=ptheme["colors"][1])
             )
             st.plotly_chart(fig_timeline, use_container_width=True)
 
@@ -207,13 +232,16 @@ def _render_tonnage_analytics():
                 y="status",
                 title="Status Pipeline Funnel",
                 color="status",
-                color_discrete_sequence=["#E8318A", "#3B2F72", "#0D9488", "#10B981", "#6366F1", "#059669"]
+                color_discrete_sequence=ptheme["colors"]
             )
             fig_funnel.update_layout(
                 showlegend=False,
                 template="plotly_white",
+                font=dict(family="Plus Jakarta Sans", color=ptheme["font_color"]),
                 margin=dict(l=20, r=20, t=40, b=20),
-                height=320
+                height=320,
+                paper_bgcolor=ptheme["paper_bgcolor"],
+                plot_bgcolor=ptheme["plot_bgcolor"]
             )
             st.plotly_chart(fig_funnel, use_container_width=True)
 
@@ -232,13 +260,17 @@ def _render_tonnage_analytics():
                 title="Ward-Wise E-Waste Collection (Meerut)",
                 labels={"total_kg": "Total kg", "ward": "Locality"},
                 color="total_kg",
-                color_continuous_scale="Purples"
+                color_continuous_scale=[ptheme["grid_color"], ptheme["colors"][0]]
             )
             fig_ward.update_layout(
                 template="plotly_white",
-                yaxis={'categoryorder': 'total ascending'},
+                font=dict(family="Plus Jakarta Sans", color=ptheme["font_color"]),
+                yaxis=dict(categoryorder='total ascending', color=ptheme["font_color"]),
+                xaxis=dict(gridcolor=ptheme["grid_color"], color=ptheme["font_color"]),
                 margin=dict(l=20, r=20, t=40, b=20),
-                height=340
+                height=340,
+                paper_bgcolor=ptheme["paper_bgcolor"],
+                plot_bgcolor=ptheme["plot_bgcolor"]
             )
             st.plotly_chart(fig_ward, use_container_width=True)
 
@@ -250,14 +282,17 @@ def _render_tonnage_analytics():
                 cdf,
                 names="category",
                 values="total_kg",
-                hole=0.45,
+                hole=0.48,
                 title="Tonnage Share by Category",
-                color_discrete_sequence=["#3B2F72", "#E8318A", "#0D9488", "#F59E0B", "#6366F1"]
+                color_discrete_sequence=ptheme["colors"]
             )
             fig_cat.update_layout(
                 template="plotly_white",
+                font=dict(family="Plus Jakarta Sans", color=ptheme["font_color"]),
                 margin=dict(l=20, r=20, t=40, b=20),
-                height=340
+                height=340,
+                paper_bgcolor=ptheme["paper_bgcolor"],
+                legend=dict(font=dict(color=ptheme["font_color"]))
             )
             st.plotly_chart(fig_cat, use_container_width=True)
 
@@ -288,7 +323,7 @@ def _render_shg_queue():
 
         for shg in pending_shgs:
             with st.container(border=True):
-                st.markdown(f"##### **{shg['name']}** &nbsp; {get_status_badge_html('Pending Approval')}", unsafe_allow_html=True)
+                render_html(f"<div style='font-size:1.1rem; font-weight:700; color:var(--text); margin-bottom:8px;'>{shg['name']} &nbsp; {get_status_badge_html('Pending Approval')}</div>")
                 c1, c2 = st.columns(2)
                 with c1:
                     st.write(f"**Application ID:** `{shg['id']}`")
@@ -310,7 +345,12 @@ def _render_shg_queue():
                         st.rerun()
 
                 with col_rej:
-                    rejection_note = st.text_input("Rejection Reason (if rejecting):", key=f"rej_note_{shg['id']}", placeholder="e.g. ID not matching UP NULM directory")
+                    rejection_note = st.text_input(
+                        "Rejection Reason (if rejecting):",
+                        key=f"rej_note_{shg['id']}",
+                        placeholder="e.g. ID not matching UP NULM directory",
+                        help="Enter a specific reason for rejection to be permanently logged in the audit record."
+                    )
                     if st.button("❌ Reject SHG", key=f"rej_{shg['id']}", use_container_width=True):
                         if not rejection_note.strip():
                             st.error("Please provide a reason for rejection.")
@@ -358,7 +398,7 @@ def _render_settlement_reconciler():
             with st.container(border=True):
                 c1, c2, c3 = st.columns([2, 2, 1.2])
                 with c1:
-                    st.markdown(f"**Request ID:** <code>{req['id']}</code>", unsafe_allow_html=True)
+                    render_html(f"<div><strong style='color:var(--text);'>Request ID:</strong> <code>{req['id']}</code></div>")
                     st.write(f"**SHG:** {req['assigned_shg_name']}")
                     st.write(f"**Category:** {req['category']}")
                     st.write(f"**Verified Weight:** {req['actual_kg']} kg")
